@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pluto TV México PRO 2026</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+font-family:'Poppins',sans-serif;
+background:#000;
+color:#fff;
+overflow:hidden;
+}
+
+#video{
+width:100vw;
+height:100vh;
+object-fit:contain;
+background:#000;
+}
+
+/* CONTROLES */
+
+.controls{
+position:fixed;
+bottom:0;
+left:0;
+right:0;
+background:linear-gradient(transparent, rgba(0,0,0,0.9));
+padding:60px 20px 20px;
+opacity:0;
+transition:opacity .4s;
+z-index:100;
+pointer-events:none;
+}
+
+.controls.visible{
+opacity:1;
+}
+
+/* INFO CANAL */
+
+.channel-info{
+display:flex;
+align-items:center;
+gap:15px;
+}
+
+.channel-info img{
+width:60px;
+height:60px;
+border-radius:14px;
+}
+
+.channel-name{
+font-size:1.4rem;
+font-weight:800;
+background:linear-gradient(90deg,#00eaff,#e50914);
+-webkit-background-clip:text;
+-webkit-text-fill-color:transparent;
+}
+
+/* OVERLAY */
+
+#overlay{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.85);
+backdrop-filter:blur(10px);
+display:none;
+z-index:200;
+}
+
+#overlay.visible{
+display:block;
+}
+
+/* CAJA LISTA */
+
+.lista{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+width:95%;
+max-width:1100px;
+height:85vh;
+background:#111;
+border-radius:25px;
+overflow:hidden;
+display:flex;
+flex-direction:column;
+}
+
+.lista-header{
+padding:15px;
+text-align:center;
+font-size:1.5rem;
+font-weight:800;
+background:linear-gradient(90deg,#00eaff,#e50914);
+}
+
+/* SELECT CATEGORIAS */
+
+.categorias-select{
+width:90%;
+margin:10px auto;
+padding:10px 15px;
+border-radius:20px;
+border:none;
+background:#222;
+color:#fff;
+font-size:1rem;
+display:block;
+}
+
+/* BUSCADOR */
+
+.buscador{
+width:90%;
+margin:10px auto;
+padding:10px 15px;
+border-radius:20px;
+border:none;
+background:#222;
+color:#fff;
+}
+
+/* LISTA CANALES */
+
+.lista-body{
+flex:1;
+padding:15px;
+overflow-y:auto;
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+gap:12px;
+}
+
+.lista-body::-webkit-scrollbar{
+width:8px;
+}
+
+.lista-body::-webkit-scrollbar-thumb{
+background:#e50914;
+border-radius:10px;
+}
+
+.canal{
+background:#1c1c1c;
+border-radius:15px;
+padding:12px;
+display:flex;
+align-items:center;
+gap:10px;
+cursor:pointer;
+transition:.3s;
+}
+
+.canal:hover{
+background:#e50914;
+}
+
+.canal img{
+width:55px;
+height:55px;
+border-radius:10px;
+}
+
+/* ESQUINAS */
+
+.corner{
+position:fixed;
+width:120px;
+height:120px;
+z-index:300;
+}
+
+#tl{top:0;left:0}
+#tr{top:0;right:0}
+#bl{bottom:0;left:0}
+#br{bottom:0;right:0}
+
+</style>
+</head>
+
+<body>
+
+<video id="video" playsinline></video>
+
+<div class="corner" id="tl"></div>
+<div class="corner" id="tr"></div>
+<div class="corner" id="bl"></div>
+<div class="corner" id="br"></div>
+
+<div class="controls" id="controls">
+<div class="channel-info">
+<img id="logoActual">
+<div class="channel-name" id="nombreActual">Pluto TV México</div>
+</div>
+</div>
+
+<div id="overlay">
+
+<div class="lista">
+
+<div class="lista-header">
+PLUTO TV MÉXICO · <span id="total">0</span> canales
+</div>
+
+<select id="listaCategorias" class="categorias-select"></select>
+
+<input type="text" id="buscador" placeholder="Buscar canal..." class="buscador">
+
+<div class="lista-body" id="listaCanales"></div>
+
+</div>
+</div>
+
+<script>
+
+const video=document.getElementById('video');
+const overlay=document.getElementById('overlay');
+const listaCanales=document.getElementById('listaCanales');
+const listaCategorias=document.getElementById('listaCategorias');
+const buscador=document.getElementById('buscador');
+const nombreActual=document.getElementById('nombreActual');
+const logoActual=document.getElementById('logoActual');
+const totalSpan=document.getElementById('total');
+const controls=document.getElementById('controls');
+
+let hls=null;
+let channels=[];
+let categorias=new Set();
+let timer;
+
+const URL="https://raw.githubusercontent.com/Alplox/json-teles/refs/heads/main/canales.m3u";
+
+async function cargar(){
+const res=await fetch(URL);
+const text=await res.text();
+parsear(text);
+}
+
+function parsear(text){
+
+const lines=text.split(/\r?\n/);
+let temp=null;
+
+channels=[];
+categorias.clear();
+
+for(let line of lines){
+
+if(line.startsWith("#EXTINF:")){
+
+const name=line.split(",").pop().trim();
+const logo=(line.match(/tvg-logo="([^"]+)"/)||[])[1]||"";
+const group=(line.match(/group-title="([^"]+)"/)||[])[1]||"Otros";
+
+temp={name,logo,group,url:""};
+
+}
+
+else if(line && !line.startsWith("#") && temp){
+
+temp.url=line;
+
+channels.push(temp);
+categorias.add(temp.group);
+
+temp=null;
+
+}
+
+}
+
+totalSpan.textContent=channels.length;
+
+crearCategorias();
+filtrar("Todos");
+
+}
+
+function crearCategorias(){
+
+listaCategorias.innerHTML="";
+
+const lista=[
+"Todos",
+"Favoritos",
+"Pluto Oficiales",
+...Array.from(categorias)
+];
+
+lista.forEach(cat=>{
+
+const option=document.createElement("option");
+option.value=cat;
+option.textContent=cat;
+
+listaCategorias.appendChild(option);
+
+});
+
+}
+
+listaCategorias.addEventListener("change",(e)=>{
+filtrar(e.target.value);
+});
+
+function filtrar(cat){
+
+listaCanales.innerHTML="";
+
+let lista=channels;
+
+if(cat==="Pluto Oficiales"){
+lista=channels.filter(c=>c.name.toLowerCase().includes("pluto"));
+}
+else if(cat!=="Todos"){
+lista=channels.filter(c=>c.group===cat);
+}
+
+lista.forEach(c=>añadirCanal(c));
+
+}
+
+function añadirCanal(c){
+
+const div=document.createElement("div");
+div.className="canal";
+
+const img=document.createElement("img");
+img.src=c.logo||"";
+
+const span=document.createElement("span");
+span.textContent=c.name;
+
+div.appendChild(img);
+div.appendChild(span);
+
+div.onclick=()=>reproducir(c);
+
+listaCanales.appendChild(div);
+
+}
+
+function reproducir(c){
+
+nombreActual.textContent=c.name;
+logoActual.src=c.logo;
+
+if(hls) hls.destroy();
+video.src="";
+
+if(Hls.isSupported() && c.url.includes("m3u8")){
+
+hls=new Hls();
+hls.loadSource(c.url);
+hls.attachMedia(video);
+hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play());
+
+}else{
+
+video.src=c.url;
+video.play();
+
+}
+
+overlay.classList.remove("visible");
+
+mostrarTitulo();
+
+}
+
+function mostrarTitulo(){
+
+controls.classList.add("visible");
+
+clearTimeout(timer);
+
+timer=setTimeout(()=>{
+controls.classList.remove("visible");
+},3000);
+
+}
+
+video.addEventListener("click",mostrarTitulo);
+video.addEventListener("mousemove",mostrarTitulo);
+
+buscador.addEventListener("input",()=>{
+
+const texto=buscador.value.toLowerCase();
+
+listaCanales.innerHTML="";
+
+channels
+.filter(c=>c.name.toLowerCase().includes(texto))
+.forEach(c=>añadirCanal(c));
+
+});
+
+document.querySelectorAll(".corner").forEach(c=>{
+c.onclick=()=>overlay.classList.toggle("visible");
+});
+
+cargar();
+
+</script>
+
+</body>
+</html>
