@@ -189,7 +189,7 @@ body{
 
 <div id="overlay">
   <div class="lista">
-    <div class="lista-header">PLUTO TV MÉXICO · <span id="total">0</span> canales</div>
+    <div class="lista-header">TV<span id="total">0</span> canales</div>
     <div class="lista-categorias" id="listaCategorias"></div>
     <input type="text" id="buscador" placeholder="Buscar canal..." class="buscador">
     <div class="lista-body" id="listaCanales"></div>
@@ -212,7 +212,7 @@ let channels=[];
 let categorias=new Set();
 let categoriaActual="Todos";
 
-const URL="http://tv.m3uts.xyz/get.php?username=m&password=m&type=m3u_plus&output=m3u8";
+const URL="https://raw.githubusercontent.com/ruminot21/Reprotv/refs/heads/main/playlist%20(1).m3u";
 
 async function cargar(){
   const res=await fetch(URL);
