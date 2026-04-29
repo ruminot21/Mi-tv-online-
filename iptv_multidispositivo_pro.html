@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>IPTV MultiDispositivo PRO</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+html,body{
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:#000;
+  color:#fff;
+  font-family:'Poppins',Arial,sans-serif;
+}
+
+body{
+  touch-action:manipulation;
+}
+
+#app{
+  width:100vw;
+  height:100vh;
+  position:relative;
+  background:#000;
+}
+
+#video{
+  width:100vw;
+  height:100vh;
+  object-fit:contain;
+  background:#000;
+  display:block;
+}
+
+.top-status{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  padding:18px 24px 70px;
+  background:linear-gradient(rgba(0,0,0,.9),rgba(0,0,0,.45),transparent);
+  z-index:80;
+  pointer-events:none;
+  opacity:0;
+  transition:.3s;
+}
+
+.top-status.visible{
+  opacity:1;
+}
+
+.status-title{
+  font-size:clamp(18px,3vw,38px);
+  font-weight:800;
+  letter-spacing:.5px;
+}
+
+.status-subtitle{
+  color:#ccc;
+  margin-top:6px;
+  font-size:clamp(12px,1.5vw,20px);
+}
+
+.controls{
+  position:fixed;
+  bottom:0;
+  left:0;
+  right:0;
+  padding:80px 22px 24px;
+  background:linear-gradient(transparent,rgba(0,0,0,.92));
+  transform:translateY(100%);
+  transition:.35s ease;
+  z-index:90;
+}
+
+.controls.visible{
+  transform:translateY(0);
+}
+
+.channel-info{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  max-width:1100px;
+}
+
+.channel-info img{
+  width:70px;
+  height:70px;
+  border-radius:16px;
+  background:#222;
+  object-fit:contain;
+}
+
+.channel-name{
+  font-size:clamp(20px,3vw,42px);
+  font-weight:800;
+  background:linear-gradient(90deg,#00eaff,#ff2b2b);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.channel-group{
+  font-size:clamp(12px,1.5vw,18px);
+  color:#ccc;
+  margin-top:4px;
+}
+
+.help-bar{
+  margin-top:14px;
+  font-size:clamp(11px,1.3vw,16px);
+  color:#aaa;
+}
+
+#overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.88);
+  backdrop-filter:blur(12px);
+  display:none;
+  z-index:200;
+}
+
+#overlay.visible{
+  display:block;
+}
+
+.lista{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:min(96vw,1320px);
+  height:min(90vh,850px);
+  background:linear-gradient(180deg,#181818,#080808);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:28px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  box-shadow:0 30px 80px rgba(0,0,0,.65);
+}
+
+.lista-header{
+  padding:18px 20px;
+  text-align:center;
+  font-size:clamp(19px,2.7vw,34px);
+  font-weight:800;
+  background:linear-gradient(90deg,#00eaff,#e50914);
+}
+
+.lista-toolbar{
+  display:flex;
+  gap:12px;
+  padding:14px 18px 6px;
+  align-items:center;
+}
+
+.buscador{
+  flex:1;
+  min-width:0;
+  padding:15px 18px;
+  border-radius:18px;
+  border:2px solid transparent;
+  background:#202020;
+  color:#fff;
+  font-size:clamp(15px,1.8vw,22px);
+  outline:none;
+}
+
+.buscador:focus{
+  border-color:#00eaff;
+  box-shadow:0 0 0 4px rgba(0,234,255,.15);
+}
+
+.btn-menu{
+  border:0;
+  color:#fff;
+  background:#252525;
+  padding:15px 18px;
+  border-radius:18px;
+  cursor:pointer;
+  font-weight:800;
+  font-size:clamp(13px,1.5vw,18px);
+}
+
+.btn-menu:focus,
+.btn-menu:hover{
+  background:#e50914;
+  outline:3px solid #00eaff;
+}
+
+.lista-categorias{
+  display:flex;
+  gap:10px;
+  padding:10px 18px 12px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+}
+
+.lista-categorias::-webkit-scrollbar{
+  display:none;
+}
+
+.categoria-btn{
+  flex:0 0 auto;
+  padding:11px 18px;
+  border-radius:999px;
+  background:#232323;
+  color:#fff;
+  cursor:pointer;
+  font-size:clamp(13px,1.6vw,19px);
+  transition:.2s;
+  border:2px solid transparent;
+  user-select:none;
+}
+
+.categoria-btn.active{
+  background:#e50914;
+}
+
+.categoria-btn:focus,
+.categoria-btn:hover{
+  outline:none;
+  border-color:#00eaff;
+  transform:scale(1.04);
+}
+
+.lista-body{
+  flex:1;
+  padding:18px;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(245px,1fr));
+  gap:14px;
+  scroll-behavior:smooth;
+}
+
+.lista-body::-webkit-scrollbar{
+  width:10px;
+}
+
+.lista-body::-webkit-scrollbar-track{
+  background:#111;
+}
+
+.lista-body::-webkit-scrollbar-thumb{
+  background:#e50914;
+  border-radius:10px;
+}
+
+.canal{
+  min-height:92px;
+  background:#1d1d1d;
+  border-radius:18px;
+  padding:13px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  cursor:pointer;
+  transition:.18s;
+  border:3px solid transparent;
+  outline:none;
+  user-select:none;
+}
+
+.canal:hover,
+.canal:focus,
+.canal.focused{
+  background:#e50914;
+  border-color:#00eaff;
+  transform:scale(1.045);
+  box-shadow:0 0 25px rgba(0,234,255,.25);
+}
+
+.canal img{
+  width:64px;
+  height:64px;
+  min-width:64px;
+  border-radius:13px;
+  object-fit:contain;
+  background:#111;
+}
+
+.canal span{
+  font-size:clamp(14px,1.7vw,21px);
+  font-weight:700;
+  line-height:1.2;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+}
+
+.empty{
+  grid-column:1/-1;
+  text-align:center;
+  color:#bbb;
+  padding:30px;
+  font-size:20px;
+}
+
+.loading{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  gap:15px;
+  z-index:300;
+  background:#000;
+}
+
+.spinner{
+  width:60px;
+  height:60px;
+  border:6px solid #222;
+  border-top-color:#00eaff;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+  to{transform:rotate(360deg)}
+}
+
+.toast{
+  position:fixed;
+  left:50%;
+  bottom:35px;
+  transform:translateX(-50%) translateY(30px);
+  background:#111;
+  border:1px solid rgba(255,255,255,.18);
+  color:#fff;
+  padding:13px 20px;
+  border-radius:999px;
+  z-index:400;
+  opacity:0;
+  transition:.25s;
+  font-size:15px;
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+}
+
+.toast.visible{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}
+
+.corner{
+  position:fixed;
+  width:18vw;
+  height:18vh;
+  min-width:90px;
+  min-height:90px;
+  z-index:120;
+}
+
+#tl{top:0;left:0}
+#tr{top:0;right:0}
+#bl{bottom:0;left:0}
+#br{bottom:0;right:0}
+
+.start-screen{
+  position:fixed;
+  inset:0;
+  background:radial-gradient(circle at top,#182437,#000 60%);
+  z-index:250;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:25px;
+}
+
+.start-card{
+  width:min(92vw,720px);
+  background:rgba(15,15,15,.88);
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:28px;
+  padding:30px;
+  box-shadow:0 30px 90px rgba(0,0,0,.65);
+}
+
+.start-card h1{
+  font-size:clamp(26px,5vw,48px);
+  margin-bottom:10px;
+  background:linear-gradient(90deg,#00eaff,#e50914);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.start-card p{
+  color:#ccc;
+  margin-bottom:22px;
+  font-size:clamp(14px,2vw,20px);
+}
+
+.start-card button{
+  border:0;
+  border-radius:18px;
+  background:#e50914;
+  color:#fff;
+  padding:16px 26px;
+  font-size:clamp(16px,2.2vw,24px);
+  font-weight:800;
+  cursor:pointer;
+}
+
+.start-card button:focus,
+.start-card button:hover{
+  outline:4px solid #00eaff;
+}
+
+@media (min-width:1200px){
+  .lista-body{
+    grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  }
+  .canal{
+    min-height:110px;
+    padding:18px;
+  }
+  .canal img{
+    width:78px;
+    height:78px;
+    min-width:78px;
+  }
+}
+
+@media (max-width:700px){
+  .lista{
+    width:100vw;
+    height:100vh;
+    border-radius:0;
+  }
+  .lista-toolbar{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .lista-body{
+    grid-template-columns:1fr;
+    padding:12px;
+  }
+  .canal{
+    min-height:82px;
+  }
+  .controls{
+    padding:55px 15px 18px;
+  }
+  .channel-info img{
+    width:55px;
+    height:55px;
+  }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <video id="video" playsinline webkit-playsinline muted autoplay></video>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>Cargando lista IPTV...</div>
+  </div>
+
+  <div class="start-screen" id="startScreen">
+    <div class="start-card">
+      <h1>IPTV MultiDispositivo PRO</h1>
+      <p>Compatible con Smart TV, TV Box, tablet, smartphone y PC.</p>
+      <button id="btnStart">Entrar / Reproducir</button>
+      <p style="margin-top:18px;font-size:14px">Control remoto: flechas, OK/Enter y Back/Escape.</p>
+    </div>
+  </div>
+
+  <div class="top-status" id="topStatus">
+    <div class="status-title" id="statusTitle">IPTV PRO</div>
+    <div class="status-subtitle" id="statusSubtitle">Presiona OK / toca las esquinas para abrir canales</div>
+  </div>
+
+  <div class="corner" id="tl"></div>
+  <div class="corner" id="tr"></div>
+  <div class="corner" id="bl"></div>
+  <div class="corner" id="br"></div>
+
+  <div class="controls" id="controls">
+    <div class="channel-info">
+      <img id="logoActual" alt="Logo canal" />
+      <div>
+        <div class="channel-name" id="nombreActual">IPTV PRO</div>
+        <div class="channel-group" id="grupoActual">Selecciona un canal</div>
+      </div>
+    </div>
+    <div class="help-bar">TV: Flechas para navegar · OK para seleccionar · Back/Escape para abrir/cerrar lista</div>
+  </div>
+
+  <div id="overlay">
+    <div class="lista">
+      <div class="lista-header">IPTV MULTIDISPOSITIVO · <span id="total">0</span> canales</div>
+      <div class="lista-toolbar">
+        <input type="text" id="buscador" placeholder="Buscar canal..." class="buscador" />
+        <button class="btn-menu" id="btnMute">Sonido</button>
+        <button class="btn-menu" id="btnFull">Pantalla completa</button>
+      </div>
+      <div class="lista-categorias" id="listaCategorias"></div>
+      <div class="lista-body" id="listaCanales"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const listaCanales = document.getElementById('listaCanales');
+const listaCategorias = document.getElementById('listaCategorias');
+const buscador = document.getElementById('buscador');
+const nombreActual = document.getElementById('nombreActual');
+const grupoActual = document.getElementById('grupoActual');
+const logoActual = document.getElementById('logoActual');
+const totalSpan = document.getElementById('total');
+const controls = document.getElementById('controls');
+const loading = document.getElementById('loading');
+const startScreen = document.getElementById('startScreen');
+const btnStart = document.getElementById('btnStart');
+const btnMute = document.getElementById('btnMute');
+const btnFull = document.getElementById('btnFull');
+const toast = document.getElementById('toast');
+const topStatus = document.getElementById('topStatus');
+const statusTitle = document.getElementById('statusTitle');
+const statusSubtitle = document.getElementById('statusSubtitle');
+
+let hls = null;
+let channels = [];
+let filteredChannels = [];
+let categorias = new Set();
+let categoriaActual = 'Todos';
+let focusIndex = 0;
+let controlsTimer = null;
+let lastChannelUrl = localStorage.getItem('ultimoCanalUrl') || '';
+
+const URL_M3U = 'https://raw.githubusercontent.com/ruminot21/Reprotv/refs/heads/main/playlist%20(1).m3u';
+const FALLBACK_LOGO = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><rect width="120" height="120" rx="22" fill="#111"/><text x="60" y="70" font-size="34" fill="#00eaff" text-anchor="middle" font-family="Arial" font-weight="bold">TV</text></svg>`);
+
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  clearTimeout(showToast.t);
+  showToast.t = setTimeout(()=>toast.classList.remove('visible'), 2500);
+}
+
+function showControls(){
+  controls.classList.add('visible');
+  topStatus.classList.add('visible');
+  clearTimeout(controlsTimer);
+  controlsTimer = setTimeout(()=>{
+    controls.classList.remove('visible');
+    topStatus.classList.remove('visible');
+  }, 4500);
+}
+
+async function cargar(){
+  try{
+    const res = await fetch(URL_M3U, {cache:'no-store'});
+    if(!res.ok) throw new Error('No se pudo cargar la lista');
+    const text = await res.text();
+    parsear(text);
+    loading.style.display = 'none';
+  }catch(err){
+    loading.innerHTML = '<div style="text-align:center;padding:20px"><h2>Error cargando lista IPTV</h2><p>Revisa tu conexión o cambia la URL M3U.</p></div>';
+    console.error(err);
+  }
+}
+
+function parsear(text){
+  const lines = text.split(/\r?\n/);
+  let temp = null;
+  channels = [];
+  categorias.clear();
+
+  for(const raw of lines){
+    const line = raw.trim();
+    if(line.startsWith('#EXTINF:')){
+      const name = line.split(',').pop().trim() || 'Canal sin nombre';
+      const logo = (line.match(/tvg-logo="([^"]+)"/) || [])[1] || '';
+      const group = (line.match(/group-title="([^"]+)"/) || [])[1] || 'Otros';
+      temp = {name, logo, group, url:''};
+    }else if(line && !line.startsWith('#') && temp){
+      temp.url = line;
+      channels.push(temp);
+      categorias.add(temp.group);
+      temp = null;
+    }
+  }
+
+  totalSpan.textContent = channels.length;
+  crearCategorias();
+  filtrar('Todos');
+
+  if(lastChannelUrl){
+    const last = channels.find(c => c.url === lastChannelUrl);
+    if(last){
+      actualizarInfo(last);
+    }
+  }
+}
+
+function crearCategorias(){
+  listaCategorias.innerHTML = '';
+  const base = ['Todos','Favoritos','Pluto Oficiales'];
+  [...base, ...Array.from(categorias).sort()].forEach(cat => {
+    const btn = document.createElement('div');
+    btn.className = 'categoria-btn';
+    btn.textContent = cat;
+    btn.tabIndex = 0;
+    btn.onclick = () => filtrar(cat);
+    btn.onkeydown = e => { if(e.key === 'Enter') filtrar(cat); };
+    listaCategorias.appendChild(btn);
+  });
+}
+
+function filtrar(cat){
+  categoriaActual = cat;
+  buscador.value = '';
+  document.querySelectorAll('.categoria-btn').forEach(b => b.classList.remove('active'));
+  Array.from(document.querySelectorAll('.categoria-btn')).find(b => b.textContent === cat)?.classList.add('active');
+
+  if(cat === 'Favoritos'){
+    const favs = JSON.parse(localStorage.getItem('favoritosIPTV') || '[]');
+    filteredChannels = favs;
+  }else if(cat === 'Pluto Oficiales'){
+    filteredChannels = channels.filter(c => c.name.toLowerCase().includes('pluto'));
+  }else if(cat !== 'Todos'){
+    filteredChannels = channels.filter(c => c.group === cat);
+  }else{
+    filteredChannels = channels.slice();
+  }
+
+  renderCanales(filteredChannels);
+}
+
+function renderCanales(lista){
+  listaCanales.innerHTML = '';
+  if(!lista.length){
+    listaCanales.innerHTML = '<div class="empty">No hay canales para mostrar.</div>';
+    return;
+  }
+
+  lista.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'canal';
+    div.tabIndex = 0;
+    div.dataset.index = i;
+
+    const img = document.createElement('img');
+    img.src = c.logo || FALLBACK_LOGO;
+    img.alt = c.name;
+    img.onerror = () => img.src = FALLBACK_LOGO;
+    div.appendChild(img);
+
+    const span = document.createElement('span');
+    span.textContent = c.name;
+    div.appendChild(span);
+
+    div.onclick = () => reproducir(c);
+    div.onfocus = () => { focusIndex = i; marcarFocus(); };
+    div.onkeydown = e => {
+      if(e.key === 'Enter') reproducir(c);
+      if(e.key.toLowerCase() === 'f') toggleFavorito(c);
+    };
+    div.oncontextmenu = e => {
+      e.preventDefault();
+      toggleFavorito(c);
+    };
+
+    listaCanales.appendChild(div);
+  });
+
+  focusIndex = 0;
+  setTimeout(()=>actualizarFocus(), 80);
+}
+
+function actualizarInfo(c){
+  nombreActual.textContent = c.name;
+  grupoActual.textContent = c.group || 'IPTV';
+  logoActual.src = c.logo || FALLBACK_LOGO;
+  statusTitle.textContent = c.name;
+  statusSubtitle.textContent = c.group || 'Reproduciendo';
+}
+
+function reproducir(c){
+  actualizarInfo(c);
+  localStorage.setItem('ultimoCanalUrl', c.url);
+  lastChannelUrl = c.url;
+
+  if(hls){
+    hls.destroy();
+    hls = null;
+  }
+
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+
+  video.muted = false;
+
+  const playVideo = () => {
+    const p = video.play();
+    if(p && p.catch){
+      p.catch(() => {
+        video.muted = true;
+        video.play().then(()=>showToast('Autoplay permitido en silencio. Activa sonido con el botón Sonido.')).catch(()=>{});
+      });
+    }
+  };
+
+  if(window.Hls && Hls.isSupported() && c.url.includes('.m3u8')){
+    hls = new Hls({
+      lowLatencyMode:true,
+      enableWorker:true,
+      maxBufferLength:20,
+      backBufferLength:10
+    });
+    hls.loadSource(c.url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, playVideo);
+    hls.on(Hls.Events.ERROR, function(event, data){
+      if(data.fatal){
+        showToast('Error en canal. Prueba otro canal.');
+      }
+    });
+  }else{
+    video.src = c.url;
+    playVideo();
+  }
+
+  cerrarOverlay();
+  showControls();
+}
+
+function buscar(){
+  const texto = buscador.value.toLowerCase().trim();
+  let base = filteredChannels.length ? filteredChannels : channels;
+  const result = texto ? base.filter(c => (c.name + ' ' + c.group).toLowerCase().includes(texto)) : base;
+  renderCanales(result);
+}
+
+buscador.addEventListener('input', buscar);
+
+function abrirOverlay(){
+  overlay.classList.add('visible');
+  showControls();
+  setTimeout(()=>actualizarFocus(), 100);
+}
+
+function cerrarOverlay(){
+  overlay.classList.remove('visible');
+}
+
+function toggleOverlay(){
+  overlay.classList.contains('visible') ? cerrarOverlay() : abrirOverlay();
+}
+
+document.querySelectorAll('.corner').forEach(c => c.onclick = toggleOverlay);
+
+function marcarFocus(){
+  const items = document.querySelectorAll('.canal');
+  items.forEach(el => el.classList.remove('focused'));
+  const actual = items[focusIndex];
+  if(actual){
+    actual.classList.add('focused');
+    actual.focus({preventScroll:true});
+    actual.scrollIntoView({block:'nearest', inline:'nearest'});
+  }
+}
+
+function actualizarFocus(){
+  const items = document.querySelectorAll('.canal');
+  if(!items.length) return;
+  focusIndex = Math.max(0, Math.min(focusIndex, items.length - 1));
+  marcarFocus();
+}
+
+function moverFocus(delta){
+  const items = document.querySelectorAll('.canal');
+  if(!items.length) return;
+  focusIndex = Math.max(0, Math.min(focusIndex + delta, items.length - 1));
+  actualizarFocus();
+}
+
+function columnasActuales(){
+  const grid = getComputedStyle(listaCanales).gridTemplateColumns;
+  return Math.max(1, grid.split(' ').length);
+}
+
+function toggleFavorito(c){
+  let favs = JSON.parse(localStorage.getItem('favoritosIPTV') || '[]');
+  const exists = favs.some(f => f.url === c.url);
+  if(exists){
+    favs = favs.filter(f => f.url !== c.url);
+    showToast('Eliminado de favoritos');
+  }else{
+    favs.push(c);
+    showToast('Agregado a favoritos');
+  }
+  localStorage.setItem('favoritosIPTV', JSON.stringify(favs));
+  if(categoriaActual === 'Favoritos') filtrar('Favoritos');
+}
+
+function pantallaCompleta(){
+  const el = document.documentElement;
+  if(document.fullscreenElement){
+    document.exitFullscreen?.();
+  }else{
+    el.requestFullscreen?.().catch(()=>showToast('Pantalla completa no permitida en este dispositivo'));
+  }
+}
+
+btnFull.onclick = pantallaCompleta;
+btnMute.onclick = () => {
+  video.muted = !video.muted;
+  btnMute.textContent = video.muted ? 'Activar sonido' : 'Silenciar';
+  showToast(video.muted ? 'Silenciado' : 'Sonido activado');
+};
+
+btnStart.onclick = () => {
+  startScreen.style.display = 'none';
+  abrirOverlay();
+  if(lastChannelUrl){
+    const last = channels.find(c => c.url === lastChannelUrl);
+    if(last) reproducir(last);
+  }
+};
+
+video.addEventListener('click', toggleOverlay);
+video.addEventListener('mousemove', showControls);
+video.addEventListener('touchstart', showControls, {passive:true});
+
+window.addEventListener('keydown', e => {
+  const key = e.key;
+  const overlayVisible = overlay.classList.contains('visible');
+
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Enter','Escape','Backspace'].includes(key)){
+    e.preventDefault();
+  }
+
+  if(key === 'Escape' || key === 'Backspace'){
+    toggleOverlay();
+    return;
+  }
+
+  if(key === 'Enter'){
+    if(!overlayVisible){
+      abrirOverlay();
+      return;
+    }
+    const items = document.querySelectorAll('.canal');
+    items[focusIndex]?.click();
+    return;
+  }
+
+  if(!overlayVisible){
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(key)) showControls();
+    return;
+  }
+
+  const cols = columnasActuales();
+  if(key === 'ArrowRight') moverFocus(1);
+  if(key === 'ArrowLeft') moverFocus(-1);
+  if(key === 'ArrowDown') moverFocus(cols);
+  if(key === 'ArrowUp') moverFocus(-cols);
+});
+
+window.addEventListener('load', () => {
+  cargar();
+  btnStart.focus();
+});
+</script>
+</body>
+</html>
